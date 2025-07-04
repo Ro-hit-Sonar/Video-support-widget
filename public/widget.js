@@ -142,6 +142,30 @@
             background: #ef4444;
         }
         
+        .debug-panel {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 20px;
+            text-align: left;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        
+        .debug-panel h4 {
+            margin: 0 0 10px 0;
+            color: #495057;
+            font-size: 14px;
+        }
+        
+        .debug-log {
+            color: #6c757d;
+            margin: 2px 0;
+        }
+        
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
@@ -170,79 +194,167 @@
   // Initialize WebRTC and Socket.IO
   async function initializeWebRTC() {
     try {
+      console.log("🔄 Initializing WebRTC connection...");
+
       // Load Socket.IO client
       if (typeof io === "undefined") {
+        console.log("📦 Loading Socket.IO client...");
         await loadScript("https://cdn.socket.io/4.7.2/socket.io.min.js");
       }
 
       // Connect to signaling server
+      console.log("🔌 Connecting to Socket.IO server...");
       socket = io();
 
+      // Log socket connection events
+      socket.on("connect", () => {
+        console.log(
+          "✅ Socket.IO connected successfully! Socket ID:",
+          socket.id
+        );
+        logDebug(`Socket.IO connected (ID: ${socket.id})`);
+        statusMessage.innerHTML =
+          '<span class="status-indicator connecting"></span>Connected to server, waiting for agent...';
+      });
+
+      socket.on("connect_error", (error) => {
+        console.error("❌ Socket.IO connection error:", error);
+        logDebug(`Socket.IO connection error: ${error.message}`);
+        statusMessage.innerHTML =
+          '<span class="status-indicator error"></span>Failed to connect to server';
+      });
+
+      socket.on("disconnect", (reason) => {
+        console.log("🔌 Socket.IO disconnected:", reason);
+        logDebug(`Socket.IO disconnected: ${reason}`);
+        statusMessage.innerHTML =
+          '<span class="status-indicator error"></span>Disconnected from server';
+      });
+
       // Join as customer
+      console.log("👤 Joining as customer...");
+      logDebug("Joining as customer...");
       socket.emit("customer-join");
 
       // Create RTCPeerConnection
+      console.log("🔗 Creating RTCPeerConnection...");
+      logDebug("Creating RTCPeerConnection...");
       peerConnection = new RTCPeerConnection(rtcConfig);
 
       // Add local stream to peer connection
       if (localStream) {
+        console.log("🎤 Adding local stream to peer connection...");
+        logDebug("Adding local stream to peer connection...");
         localStream.getTracks().forEach((track) => {
           peerConnection.addTrack(track, localStream);
         });
       }
 
       // Handle incoming remote stream
-      peerConnection.ontrack = () => {
-        console.log("Remote stream received");
+      peerConnection.ontrack = (event) => {
+        console.log("📹 Remote stream received:", event.streams[0]);
+        logDebug("Remote stream received from agent");
+        statusMessage.innerHTML =
+          '<span class="status-indicator connected"></span>Connected to agent!';
       };
 
       // Handle ICE candidates
       peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
+          console.log("🧊 Sending ICE candidate:", event.candidate);
+          logDebug("Sending ICE candidate to agent");
           socket.emit("ice-candidate", {
             candidate: event.candidate,
             targetId: "agent", // We'll need to get the actual agent ID
           });
+        } else {
+          console.log("✅ ICE gathering complete");
+          logDebug("ICE gathering complete");
         }
       };
 
       // Handle connection state changes
       peerConnection.onconnectionstatechange = () => {
-        console.log("Connection state:", peerConnection.connectionState);
+        console.log(
+          "🔗 Connection state changed:",
+          peerConnection.connectionState
+        );
+        logDebug(`WebRTC connection state: ${peerConnection.connectionState}`);
         if (peerConnection.connectionState === "connected") {
           statusMessage.innerHTML =
             '<span class="status-indicator connected"></span>Connected to agent';
         } else if (peerConnection.connectionState === "disconnected") {
           statusMessage.innerHTML =
             '<span class="status-indicator error"></span>Connection lost';
+        } else if (peerConnection.connectionState === "failed") {
+          console.error("❌ WebRTC connection failed");
+          logDebug("WebRTC connection failed");
+          statusMessage.innerHTML =
+            '<span class="status-indicator error"></span>Connection failed';
         }
       };
 
+      // Handle ICE connection state changes
+      peerConnection.oniceconnectionstatechange = () => {
+        console.log(
+          "🧊 ICE connection state:",
+          peerConnection.iceConnectionState
+        );
+        logDebug(`ICE connection state: ${peerConnection.iceConnectionState}`);
+      };
+
       // Create and send offer
+      console.log("📤 Creating WebRTC offer...");
+      logDebug("Creating WebRTC offer...");
       const offer = await peerConnection.createOffer();
       await peerConnection.setLocalDescription(offer);
+      console.log("📤 Sending offer to agent:", offer);
+      logDebug("Sending offer to agent");
       socket.emit("offer", offer);
 
       // Listen for answer
       socket.on("answer", async (answer) => {
-        await peerConnection.setRemoteDescription(answer);
+        console.log("📥 Received answer from agent:", answer);
+        logDebug("Received answer from agent");
+        try {
+          await peerConnection.setRemoteDescription(answer);
+          console.log("✅ Remote description set successfully");
+          logDebug("Remote description set successfully");
+        } catch (error) {
+          console.error("❌ Error setting remote description:", error);
+          logDebug(`Error setting remote description: ${error.message}`);
+        }
       });
 
       // Listen for ICE candidates from agent
       socket.on("ice-candidate", async (data) => {
+        console.log("📥 Received ICE candidate from agent:", data);
+        logDebug("Received ICE candidate from agent");
         if (data.candidate) {
-          await peerConnection.addIceCandidate(data.candidate);
+          try {
+            await peerConnection.addIceCandidate(data.candidate);
+            console.log("✅ ICE candidate added successfully");
+            logDebug("ICE candidate added successfully");
+          } catch (error) {
+            console.error("❌ Error adding ICE candidate:", error);
+            logDebug(`Error adding ICE candidate: ${error.message}`);
+          }
         }
       });
 
       // Listen for call end
       socket.on("call-ended", () => {
+        console.log("📞 Call ended by agent");
+        logDebug("Call ended by agent");
         resetCall();
         statusMessage.innerHTML =
           '<span class="status-indicator error"></span>Call ended by agent';
       });
+
+      console.log("✅ WebRTC initialization complete");
+      logDebug("WebRTC initialization complete");
     } catch (error) {
-      console.error("Error initializing WebRTC:", error);
+      console.error("❌ Error initializing WebRTC:", error);
       throw error;
     }
   }
@@ -256,6 +368,16 @@
       script.onerror = reject;
       document.head.appendChild(script);
     });
+  }
+
+  // Debug logging function
+  function logDebug(message) {
+    const timestamp = new Date().toLocaleTimeString();
+    const logEntry = document.createElement("div");
+    logEntry.className = "debug-log";
+    logEntry.textContent = `[${timestamp}] ${message}`;
+    debugLogs.appendChild(logEntry);
+    debugLogs.scrollTop = debugLogs.scrollHeight;
   }
 
   // Create widget button
@@ -278,6 +400,10 @@
                 <button class="support-btn muted" id="mute-btn">🔇 Mute</button>
                 <button class="support-btn danger" id="end-call">End Call</button>
             </div>
+            <div class="debug-panel" id="debug-panel" style="display: none;">
+                <h4>Debug Info</h4>
+                <div id="debug-logs"></div>
+            </div>
         </div>
     `;
 
@@ -289,6 +415,8 @@
   const closeModalBtn = modal.querySelector("#close-modal");
   const muteBtn = modal.querySelector("#mute-btn");
   const endCallBtn = modal.querySelector("#end-call");
+  const debugPanel = modal.querySelector("#debug-panel");
+  const debugLogs = modal.querySelector("#debug-logs");
 
   // Add click handler to widget button
   widgetButton.addEventListener("click", function () {
@@ -304,6 +432,7 @@
   // Start call
   startCallBtn.addEventListener("click", async function () {
     try {
+      logDebug("Starting call...");
       statusMessage.innerHTML =
         '<span class="status-indicator connecting"></span>Requesting microphone access...';
 
@@ -313,6 +442,8 @@
         video: false,
       });
 
+      logDebug("Microphone access granted");
+
       // Initialize WebRTC and Socket.IO
       await initializeWebRTC();
 
@@ -320,10 +451,13 @@
         '<span class="status-indicator connecting"></span>Connecting to agent...';
       callControls.style.display = "none";
       activeControls.style.display = "flex";
+      debugPanel.style.display = "block";
 
       console.log("Microphone access granted and WebRTC initialized");
+      logDebug("Call initialization complete");
     } catch (error) {
       console.error("Error starting call:", error);
+      logDebug(`Error starting call: ${error.message}`);
       statusMessage.innerHTML =
         '<span class="status-indicator error"></span>Error: Could not start call';
     }
@@ -371,6 +505,7 @@
     statusMessage.innerHTML = 'Click "Start Call" to begin...';
     callControls.style.display = "flex";
     activeControls.style.display = "none";
+    debugPanel.style.display = "none";
     muteBtn.innerHTML = "🔇 Mute";
     muteBtn.className = "support-btn muted";
   }

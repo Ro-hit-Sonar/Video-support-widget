@@ -112,14 +112,30 @@ export default function DashboardPage() {
   };
 
   const initializeSocket = () => {
+    console.log("🔌 Initializing Socket.IO connection...");
     const socket = io();
     socketRef.current = socket;
 
+    // Log socket connection events
+    socket.on("connect", () => {
+      console.log("✅ Socket.IO connected successfully! Socket ID:", socket.id);
+    });
+
+    socket.on("connect_error", (error) => {
+      console.error("❌ Socket.IO connection error:", error);
+    });
+
+    socket.on("disconnect", (reason) => {
+      console.log("🔌 Socket.IO disconnected:", reason);
+    });
+
     // Join as agent
+    console.log("👨‍💼 Joining as agent...");
     socket.emit("agent-join");
 
     // Listen for customer availability
     socket.on("customer-available", () => {
+      console.log("👤 Customer is available and waiting");
       setStatus(
         "Customer waiting - will connect automatically when they start call"
       );
@@ -133,14 +149,18 @@ export default function DashboardPage() {
         customerId: string;
       }) => {
         try {
+          console.log("📥 Received offer from customer:", data.customerId);
+          console.log("📥 Offer details:", data.offer);
           setStatus("Incoming call...");
 
           // Create peer connection
+          console.log("🔗 Creating RTCPeerConnection for customer...");
           const peerConnection = new RTCPeerConnection(rtcConfig);
           peerConnectionRef.current = peerConnection;
 
           // Add local stream
           if (localStream) {
+            console.log("🎤 Adding local stream to peer connection...");
             localStream.getTracks().forEach((track) => {
               peerConnection.addTrack(track, localStream);
             });
@@ -148,6 +168,10 @@ export default function DashboardPage() {
 
           // Handle remote stream
           peerConnection.ontrack = (event) => {
+            console.log(
+              "📹 Remote stream received from customer:",
+              event.streams[0]
+            );
             setRemoteStream(event.streams[0]);
             setIsInCall(true);
             setStatus("Connected to customer");
@@ -156,36 +180,59 @@ export default function DashboardPage() {
           // Handle ICE candidates
           peerConnection.onicecandidate = (event) => {
             if (event.candidate) {
+              console.log(
+                "🧊 Sending ICE candidate to customer:",
+                event.candidate
+              );
               socket.emit("ice-candidate", {
                 candidate: event.candidate,
                 targetId: data.customerId,
               });
+            } else {
+              console.log("✅ ICE gathering complete");
             }
           };
 
           // Handle connection state changes
           peerConnection.onconnectionstatechange = () => {
-            console.log("Connection state:", peerConnection.connectionState);
+            console.log(
+              "🔗 Connection state changed:",
+              peerConnection.connectionState
+            );
             if (peerConnection.connectionState === "connected") {
               setStatus("Connected to customer");
             } else if (peerConnection.connectionState === "disconnected") {
               setStatus("Customer disconnected");
               setIsInCall(false);
               setRemoteStream(null);
+            } else if (peerConnection.connectionState === "failed") {
+              console.error("❌ WebRTC connection failed");
+              setStatus("Connection failed");
             }
           };
 
+          // Handle ICE connection state changes
+          peerConnection.oniceconnectionstatechange = () => {
+            console.log(
+              "🧊 ICE connection state:",
+              peerConnection.iceConnectionState
+            );
+          };
+
           // Set remote description and create answer
+          console.log("📥 Setting remote description from customer offer...");
           await peerConnection.setRemoteDescription(data.offer);
+          console.log("📤 Creating answer for customer...");
           const answer = await peerConnection.createAnswer();
           await peerConnection.setLocalDescription(answer);
+          console.log("📤 Sending answer to customer:", answer);
 
           socket.emit("answer", {
             answer,
             customerId: data.customerId,
           });
         } catch (error) {
-          console.error("Error handling offer:", error);
+          console.error("❌ Error handling offer:", error);
           setStatus("Error: Could not establish connection");
         }
       }
@@ -195,11 +242,14 @@ export default function DashboardPage() {
     socket.on(
       "ice-candidate",
       async (data: { candidate: RTCIceCandidateInit; fromId: string }) => {
+        console.log("📥 Received ICE candidate from customer:", data.fromId);
+        console.log("📥 ICE candidate details:", data.candidate);
         if (peerConnectionRef.current) {
           try {
             await peerConnectionRef.current.addIceCandidate(data.candidate);
+            console.log("✅ ICE candidate added successfully");
           } catch (error) {
-            console.error("Error adding ICE candidate:", error);
+            console.error("❌ Error adding ICE candidate:", error);
           }
         }
       }
@@ -207,6 +257,7 @@ export default function DashboardPage() {
 
     // Listen for call end
     socket.on("call-ended", () => {
+      console.log("📞 Call ended by customer");
       setStatus("Call ended by customer");
       setIsInCall(false);
       setRemoteStream(null);
@@ -218,8 +269,10 @@ export default function DashboardPage() {
 
     // Handle disconnect
     socket.on("disconnect", () => {
-      console.log("Socket disconnected");
+      console.log("🔌 Socket disconnected");
     });
+
+    console.log("✅ Socket.IO initialization complete");
   };
 
   const endCall = () => {
