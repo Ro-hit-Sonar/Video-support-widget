@@ -11,6 +11,7 @@ A plug-and-play support call widget using WebRTC for real-time audio communicati
 - 🔄 **Real-time Signaling**: Socket.IO for WebRTC connection establishment
 - 🎛️ **Call Controls**: Mute/unmute, end call functionality
 - 📱 **Responsive Design**: Works on desktop and mobile devices
+- ☁️ **Cloud Signaling**: Deployed Socket.IO server on Render for reliable connections
 
 ## Quick Start
 
@@ -72,25 +73,23 @@ npm run dev
 
 ## Technical Architecture
 
-### Phase 1: Basic Widget + Dashboard
+### Frontend (Next.js)
 
-- Floating support button with modal interface
-- Agent authentication system
-- Protected dashboard route
+- **Customer Widget**: Vanilla JavaScript widget loaded via script tag
+- **Agent Dashboard**: React/TypeScript dashboard with WebRTC controls
+- **Authentication**: Simple login system for agents
 
-### Phase 2: WebRTC Media Streams
+### Backend (Render)
 
-- Microphone access for customers
-- Camera + microphone access for agents
-- Local video preview for agents
-- Mute/unmute functionality
+- **Socket.IO Server**: Deployed on Render at `https://socket-server-2jvv.onrender.com`
+- **WebRTC Signaling**: Handles offer/answer exchange and ICE candidates
+- **Connection Management**: Manages customer and agent connections
 
-### Phase 3: Real-time Signaling
+### WebRTC Communication
 
-- Socket.IO server for WebRTC signaling
-- Peer-to-peer audio communication
-- Automatic connection establishment
-- Call state management
+- **Peer-to-Peer**: Direct audio communication between customer and agent
+- **STUN Servers**: Google's public STUN servers for NAT traversal
+- **Real-time Audio**: Low-latency audio streaming
 
 ## File Structure
 
@@ -99,11 +98,11 @@ video-agent-fittrock/
 ├── app/
 │   ├── dashboard/page.tsx      # Agent dashboard with WebRTC
 │   ├── login/page.tsx          # Agent login page
+│   ├── test/page.tsx           # Test page for widget
 │   ├── layout.tsx              # Root layout
-│   └── page.tsx                # Home page with widget
+│   └── page.tsx                # Home page
 ├── public/
 │   └── widget.js               # Customer widget (vanilla JS)
-├── server.js                   # Custom server with Socket.IO
 ├── package.json                # Dependencies and scripts
 └── README.md                   # This file
 ```
@@ -127,8 +126,9 @@ npm start
 
 - **Frontend**: Next.js 15, React 19, TypeScript
 - **Styling**: Tailwind CSS
-- **Real-time**: Socket.IO
+- **Real-time**: Socket.IO Client
 - **WebRTC**: Native browser APIs
+- **Backend**: Socket.IO Server (deployed on Render)
 - **Authentication**: Local storage (demo purposes)
 
 ## Browser Support
@@ -164,10 +164,11 @@ For production use, implement:
 2. **Connection fails**: Check firewall settings and STUN server availability
 3. **Agent not receiving calls**: Verify agent is logged in and has started agent mode
 4. **Audio quality issues**: Check network connection and microphone settings
+5. **Socket.IO connection issues**: Verify the Render server is accessible
 
 ### Debug Mode
 
-Open browser developer tools to see detailed connection logs and WebRTC state information.
+Open browser developer tools to see detailed connection logs and WebRTC state information. The widget includes a debug panel showing real-time connection status.
 
 ## License
 

@@ -50,6 +50,12 @@ export default function TestPage() {
               Check the browser console and debug panel for connection logs
             </li>
           </ol>
+          <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+            <p className="text-green-800 text-sm">
+              <strong>✅ Updated:</strong> Now using deployed Socket.IO server
+              on Render for reliable WebRTC signaling.
+            </p>
+          </div>
         </div>
 
         <div className="bg-white rounded-lg shadow p-6">

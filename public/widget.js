@@ -204,7 +204,11 @@
 
       // Connect to signaling server
       console.log("🔌 Connecting to Socket.IO server...");
-      socket = io();
+      socket = io("https://socket-server-2jvv.onrender.com", {
+        transports: ["websocket", "polling"],
+        timeout: 20000,
+        forceNew: true,
+      });
 
       // Log socket connection events
       socket.on("connect", () => {

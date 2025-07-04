@@ -113,7 +113,11 @@ export default function DashboardPage() {
 
   const initializeSocket = () => {
     console.log("🔌 Initializing Socket.IO connection...");
-    const socket = io();
+    const socket = io("https://socket-server-2jvv.onrender.com", {
+      transports: ["websocket", "polling"],
+      timeout: 20000,
+      forceNew: true,
+    });
     socketRef.current = socket;
 
     // Log socket connection events
