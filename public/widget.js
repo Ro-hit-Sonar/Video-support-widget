@@ -166,6 +166,16 @@
             margin: 2px 0;
         }
         
+        .agent-video-container {
+            margin-top: 20px;
+            text-align: center;
+        }
+        
+        .agent-video-container video {
+            border: 2px solid #e5e7eb;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
@@ -257,9 +267,31 @@
       // Handle incoming remote stream
       peerConnection.ontrack = (event) => {
         console.log("📹 Remote stream received:", event.streams[0]);
+        console.log("📹 Remote stream tracks:", event.streams[0]?.getTracks());
         logDebug("Remote stream received from agent");
         statusMessage.innerHTML =
           '<span class="status-indicator connected"></span>Connected to agent!';
+
+        // Set the remote stream to the video element
+        const agentVideo = document.getElementById("agent-video");
+        const agentVideoContainer = document.getElementById(
+          "agent-video-container"
+        );
+        if (agentVideo && event.streams[0]) {
+          agentVideo.srcObject = event.streams[0];
+          agentVideoContainer.style.display = "block";
+          logDebug("Agent video stream attached to video element");
+
+          // Log track information
+          const tracks = event.streams[0].getTracks();
+          tracks.forEach((track) => {
+            console.log("📹 Received track:", track.kind, track.id);
+            logDebug(`Received ${track.kind} track from agent`);
+          });
+        } else {
+          console.error("❌ No video element or stream available");
+          logDebug("Error: No video element or stream available");
+        }
       };
 
       // Handle ICE candidates
@@ -404,6 +436,9 @@
                 <button class="support-btn muted" id="mute-btn">🔇 Mute</button>
                 <button class="support-btn danger" id="end-call">End Call</button>
             </div>
+            <div class="agent-video-container" id="agent-video-container" style="display: none;">
+                <video id="agent-video" autoplay playsinline style="width: 100%; max-width: 300px; border-radius: 8px;"></video>
+            </div>
             <div class="debug-panel" id="debug-panel" style="display: none;">
                 <h4>Debug Info</h4>
                 <div id="debug-logs"></div>
@@ -512,6 +547,18 @@
     debugPanel.style.display = "none";
     muteBtn.innerHTML = "🔇 Mute";
     muteBtn.className = "support-btn muted";
+
+    // Reset agent video
+    const agentVideo = document.getElementById("agent-video");
+    const agentVideoContainer = document.getElementById(
+      "agent-video-container"
+    );
+    if (agentVideo) {
+      agentVideo.srcObject = null;
+    }
+    if (agentVideoContainer) {
+      agentVideoContainer.style.display = "none";
+    }
   }
 
   // Handle page unload

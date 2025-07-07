@@ -165,9 +165,15 @@ export default function DashboardPage() {
           // Add local stream
           if (localStream) {
             console.log("🎤 Adding local stream to peer connection...");
+            console.log("🎤 Local stream tracks:", localStream.getTracks());
             localStream.getTracks().forEach((track) => {
+              console.log("🎤 Adding track:", track.kind, track.id);
               peerConnection.addTrack(track, localStream);
             });
+          } else {
+            console.error(
+              "❌ No local stream available to add to peer connection"
+            );
           }
 
           // Handle remote stream
